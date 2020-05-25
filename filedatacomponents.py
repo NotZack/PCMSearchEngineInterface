@@ -19,11 +19,11 @@ class FileDataComponents(FloatLayout):
 
     # Calls for the creation of room data components
     def show_file_data(self, query_results):
-        self.file_data = self.parse_file_data(query_results)
+        self.file_data = self.parse_query_results(query_results)
         self.create_file_stats()
 
     # Creates and displays the room data component components
-    def create_room_stats(self):
+    def create_file_stats(self):
         self.destroy_current_view()
         self.current_view.add_widget(FileView(self.file_data))
         self.current_view.add_widget(FileInformation(self.file_data))
