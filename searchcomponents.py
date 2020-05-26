@@ -8,6 +8,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 import rootlayout
 import socketcomm
+from decor import ResizableLabel
 
 '''
 The components that handle specific folder selection
@@ -21,22 +22,27 @@ class FolderSearchComponents(FloatLayout):
     def __init__(self, **kwargs):
         super(FolderSearchComponents, self).__init__(**kwargs)
 
-        self.folder_parent_label = Label(text='Base folder', size_hint=(0.2, 0.05), pos_hint={'x': 0.025, 'y': 0.90})
+        self.folder_parent_label = ResizableLabel(
+            text='Base folder', size_hint=(0.2, 0.05), pos_hint={'x': 0.025, 'y': 0.90}
+        )
         self.folder_overview_container = ScrollView(size_hint=(0.2, 0.25), pos_hint={'x': 0.025, 'y': 0.65})
         self.folder_overview_contents = GridLayout(cols=1, size_hint_y=None, height=2000)
 
         self.folder_overview_container.add_widget(self.folder_overview_contents)
 
-        self.folder_child_label = Label(text='Child folder', size_hint=(0.2, 0.05), pos_hint={'x': 0.25, 'y': 0.90})
+        self.folder_child_label = ResizableLabel(
+            text='Child folder', size_hint=(0.2, 0.05), pos_hint={'x': 0.25, 'y': 0.90}
+        )
         self.folder_specific_container = ScrollView(size_hint=(0.2, 0.25), pos_hint={'x': 0.25, 'y': 0.65})
         self.folder_specific_contents = GridLayout(cols=1, size_hint_y=None, height=2000)
 
         self.folder_specific_container.add_widget(self.folder_specific_contents)
 
-        self.folder_search_label = Label(text="Searching folders: ",
-                                         size_hint=(0.2, 0.05), pos_hint={'x': 0.01, 'y': 0.55})
+        self.folder_search_label = ResizableLabel(
+            text="Searching folders: ", size_hint=(0.2, 0.05), pos_hint={'x': 0.025, 'y': 0.55}
+        )
         self.clear_button = Button(on_press=self.clear_folder_search, text="Clear folders", size_hint=(0.05, 0.05),
-                                   pos_hint={'x': 0.4, 'y': 0.55})
+                                   pos_hint={'x': 0.25, 'y': 0.55})
 
         self.add_widget(self.folder_parent_label)
         self.add_widget(self.folder_child_label)
@@ -52,8 +58,12 @@ class FolderSearchComponents(FloatLayout):
         self.folder_search_label.text = "Searching folders: "
 
     def update_search_label(self, new_element):
-        self.folder_search_label.text += new_element + ", "
-        folder_search_modify.append(new_element)
+        if new_element not in folder_search_modify:
+            self.folder_search_label.text += new_element + ", "
+            folder_search_modify.append(new_element)
+
+    def add_folder_filter(self, button):
+        self.update_search_label(button.text)
 
     def create_overview_contents(self, button):
         self.folder_overview_contents.clear_widgets()
@@ -66,7 +76,7 @@ class FolderSearchComponents(FloatLayout):
 
         self.update_search_label(button.text)
 
-        [self.folder_specific_contents.add_widget(Button(text=x))
+        [self.folder_specific_contents.add_widget(Button(text=x, on_press=self.add_folder_filter))
          for x in os.listdir(socketcomm.base_directory + "\\" + button.text) if not '.' in x and not "segments_" in x]
         self.folder_specific_contents.height = 35 * len(self.folder_specific_contents.children)
 
@@ -106,18 +116,11 @@ class FileSearchComponents(FloatLayout):
     def on_type(self, instance, text):
         self.search_results.clear_widgets()
 
-        query_result = None
-        if self.search_input.text.startswith("Exact_Query:"):
-            self.search_results.clear_widgets()
-            self.search_results.height = 35
-            result_button = Button(text=self.search_input.text[12:])
-            self.search_results.add_widget(result_button)
+        if len(folder_search_modify) > 0:
+            query_result = socketcomm.send_query_to_socket(
+                self.search_input.text + " Folder_names: " + str(folder_search_modify))
         else:
-            if len(folder_search_modify) > 0:
-                query_result = socketcomm.send_query_to_socket(
-                    self.search_input.text + " Folder_names: " + str(folder_search_modify))
-            else:
-                query_result = socketcomm.send_query_to_socket(self.search_input.text)
+            query_result = socketcomm.send_query_to_socket(self.search_input.text)
 
         # Splits the aggregate query result into its individual results
         if query_result is not None:
@@ -130,11 +133,11 @@ class FileSearchComponents(FloatLayout):
                     self.search_results.add_widget(result_button)
 
     # Displays the room information of the rooms search result button
-    def on_file_collect(self, button):
+    @staticmethod
+    def on_file_collect(button):
         if ("Invalid query" in button.text) or ("No results found" in button.text):
             return
 
-        self.search_input.text = "Exact_Query:" + button.text
         file_data = socketcomm.collect_exact_query(button.text)
 
         print("File data: " + file_data)
